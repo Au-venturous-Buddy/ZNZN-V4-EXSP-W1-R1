@@ -1,125 +1,150 @@
-import React from "react"
-import { graphql } from "gatsby"
-import { textVide } from 'text-vide';
-import WordpressBase from "../components/wordpress-base"
-import allModes from "../assets/modes.json";
-import tableBackgrounds from "../assets/table-backgrounds.json";
+import React, { useState } from "react";
+import Layout from "../components/layout"
+import { graphql } from "gatsby";
+import {ImageList, ImageListItem} from '@mui/material';
+import {Container, Button, Modal, Form} from 'react-bootstrap';
+import CloseButton from "../components/close-button";
+import ResponsiveGridColumns from "../hooks/responsive-grid-columns";
+import ResponsiveHeader from "../components/responsive-header";
+import ResponsiveSize from "../hooks/responsive-size";
+import SettingsButton from "../components/settings-button";
 
-function generateSections(images, texts, imagesAlt, callAt, state) {
-  var sections = [];
-  callAt.forEach((sceneID) => {
-    var subImages = images[sceneID]
-    var subTexts = texts[sceneID.split("-")[0]]
-    var subImagesAlt = imagesAlt[sceneID.split("-")[0]]
-
-    var sectionNum = 0;
-    var maxSectionNum = Math.max(parseInt(subImages[subImages.length - 1].name), parseInt(subTexts[subTexts.length - 1].name));
-    var currentImage = (<section aria-hidden={true}></section>);
-    var currentText = null;
-    var nextTextID = 0;
-    var nextImageID = 0;
-
-    while(sectionNum <= maxSectionNum) {
-      if(nextTextID < subTexts.length && parseInt(subTexts[nextTextID].name) === sectionNum) {
-        var currentTextHTML = subTexts[nextTextID].childMarkdownRemark.html;
-        if(state.currentBionicReadingFixation > 0) {
-          currentTextHTML = textVide(currentTextHTML, { sep: ['<span class="fixation-reading">', '</span>'], fixationPoint: state.currentBionicReadingFixation });
-        }
-        currentText = (<section className="my-2" style={{textAlign: "justify"}} dangerouslySetInnerHTML={{ __html: currentTextHTML }}></section>);
-        nextTextID++;
-      }
+function SettingsWindow(props) {
+  const [show, setShow] = useState(false);
   
-      if(nextImageID < subImages.length && parseInt(subImages[nextImageID].name) === sectionNum) {
-        currentImage = (
-          <section className="my-2 center-image">
-            <img style={{maxWidth: state.currentOrientation ? "100%" : "60%"}} alt={subImagesAlt[sectionNum]} src={subImages[nextImageID].publicURL} />
-          </section>
-        );
-        nextImageID++;
-      }
-  
-      sections.push({"image": currentImage, "text": currentText})
-      sectionNum++;
-    }
-  })
+  const handleClose = () => setShow(false);
+  const handleShow = () => setShow(true);
 
-  return sections;
+  return(
+    <>
+      <SettingsButton fontButtonSize={ResponsiveSize(0.8, "rem", 0.001, 500)} handleShow={handleShow} />
+      <Modal show={show} onHide={handleClose} fullscreen={true} scrollable={true}>
+      <Modal.Header className="justify-content-center">
+        <Modal.Title style={{textAlign: "center", color: "#017BFF"}}>
+          <ResponsiveHeader level={1} maxSize={2} minScreenSize={500}>Settings</ResponsiveHeader>
+        </Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <section className="mb-3">
+          <div className='align-items-center' style={{textAlign: 'center', color: "#017BFF"}}>
+            <ResponsiveHeader level={2} maxSize={1.5} minScreenSize={500}>
+              Table Background
+            </ResponsiveHeader>
+          </div>
+          <Form.Select style={{color: "#017BFF"}} className="hover-shadow" id="table-background-selector" onChange={props.changeTableBackground} value={props.currentTableBackground}>
+            {props.tableBackgroundOptions.map((value) => (<option key={value}>{value}</option>))}
+          </Form.Select>
+        </section>
+      </Modal.Body>
+      <Modal.Footer className="justify-content-center">
+        <CloseButton handleClose={handleClose} />
+      </Modal.Footer>
+    </Modal>
+    </>
+  )
 }
 
-function compileWordpress(data, state, modes) {
-  var callAt = modes[state.currentMode]
+function ShowImage({image, title}) {
+  const [show, setShow] = useState(false);
+
+  const handleClose = () => setShow(false);
+  const handleShow = () => setShow(true);
+
+  return(
+    <>
+      <Button className="view img-button" onClick={handleShow}>
+          <img
+            className="d-block w-100"
+            src={image.publicURL}
+            alt={image.name}
+          />
+      </Button>
+      <Modal size="lg" show={show} onHide={handleClose} centered scrollable>
+          <Modal.Header className="justify-content-center">
+            <Modal.Title style={{textAlign: "center", color: "#017BFF"}}>
+              <ResponsiveHeader level={1} maxSize={2} minScreenSize={500}>
+                {`${title} - Image ${image.name}`}
+              </ResponsiveHeader>
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body style={{textAlign: "justify"}}>
+            <img
+              className="hover-shadow-card d-block w-100 mb-3"
+              src={image.publicURL}
+              alt={image.name}
+            />
+          </Modal.Body>
+          <Modal.Footer className="justify-content-center">
+            <CloseButton handleClose={handleClose} />
+          </Modal.Footer>
+        </Modal>
+    </>
+    )
+}
+
+function GridGalleryMain({images, title}) {
+  var imgDisplay = [];
   
+  for(var i = 0; i < images.length; i++) {
+    imgDisplay.push(
+      <ShowImage key={images[i].name} image={images[i]} title={title} />
+    )
+  }
+
+  return (
+    <Container className="py-5">
+      <div className="mb-5" style={{textAlign: "center"}}>
+        <ResponsiveHeader level={1} maxSize={2} minScreenSize={800}>
+          {title}
+        </ResponsiveHeader>
+      </div>
+      <ImageList rowHeight="auto" gap={5} cols={ResponsiveGridColumns(4, imgDisplay.length, [993, 770, 500])}>
+        {imgDisplay.map((currentValue, index) => (
+          <ImageListItem key={index}>
+            <div
+              style={{
+                margin: `0 auto`,
+                maxWidth: 330,
+                padding: `10%`
+              }}
+            >
+              {currentValue}
+            </div>
+          </ImageListItem>
+        ))}
+      </ImageList>
+    </Container>
+  )
+}
+
+export default function GridGallery({data}) {
+  const [currentTableBackground, changeTableBackground] = useState("Zene")
+
+  const changeTableBackgroundMain = () => {
+    var tableBackground = document.getElementById("table-background-selector").value;
+    changeTableBackground(tableBackground);
+  }
+
   var metadataItems = null;
-  var images = {};
-  var texts = {};
-  var imagesAlt = {};
-  var currentLanguageCode = `en`;
-  var languages = new Set();
+  var images = [];
   for(var i = 0; i < data.allFile.edges.length; i++) {
     var nodeItem = data.allFile.edges[i].node
-    var parentFolder = nodeItem.relativeDirectory.split("/")[nodeItem.relativeDirectory.split("/").length - 1]
     if(nodeItem.relativeDirectory.includes("images") && nodeItem.ext === ".png") {
-      if(!(parentFolder in images)) {
-        images[parentFolder] = [];
-      }
-      images[parentFolder].push(nodeItem);
-    }
-    else if(nodeItem.relativeDirectory.includes("text") && nodeItem.ext === ".md" && nodeItem.name === "lang-info") {
-      languages.add(parentFolder)
-      if(nodeItem.relativeDirectory.includes("text/" + state.currentLanguage)) {
-        currentLanguageCode = nodeItem.childMarkdownRemark.frontmatter.language_code
-      }
-    }
-    else if(nodeItem.relativeDirectory.includes("text") && nodeItem.ext === ".md" && nodeItem.name === "image-alt" && nodeItem.relativeDirectory.includes("text/" + state.currentLanguage)) {
-      if(!(parentFolder in imagesAlt)) {
-        imagesAlt[parentFolder] = [];
-      }
-      imagesAlt[parentFolder] = nodeItem.childMarkdownRemark.frontmatter.image_alt
-    }
-    else if(nodeItem.relativeDirectory.includes("text") && nodeItem.ext === ".md") {
-      if(nodeItem.relativeDirectory.includes("text/" + state.currentLanguage.split("-")[0])) {
-        if(!(parentFolder in texts)) {
-          texts[parentFolder] = [];
-        }
-        texts[parentFolder].push(nodeItem);
-      }
+      images.push(nodeItem);
     }
     else if(nodeItem.ext === ".md" && nodeItem.name === "index") {
       metadataItems = nodeItem;
     }
   }
 
-  var languageOptions = []
-  languages.forEach((value) => {
-    languageOptions.push(<option key={value}>{value}</option>)
-  })
-
-  var sections = generateSections(images, texts, imagesAlt, callAt, state);
-
-  return {
-    metadataItems,
-    languageOptions,
-    currentLanguageCode,
-    sections
-  }
-}
-
-export default function WordpressBlogv2022_3(props) {
-  const modeOptions = Object.keys(allModes);
-  const tableBackgroundOptions = Object.keys(tableBackgrounds);
-
-  return(
-    <WordpressBase 
-      data={props.data}
-      modeOptions={modeOptions}
-      defaultMode={modeOptions[0]}
-      modes={allModes}
-      tableBackgroundOptions={tableBackgroundOptions}
-      defaultTableBackground={tableBackgroundOptions[0]}
-      tableBackgrounds={tableBackgrounds}
-      defaultLanguage="English"
-      compile={compileWordpress}
-    />
+  return (
+    <Layout showMenuBar menuBarItems={[(<SettingsWindow currentTableBackground={currentTableBackground} changeTableBackground={changeTableBackgroundMain} tableBackgroundOptions={['Zene', 'Zeanne', 'Classroom Table']} />)]}>
+      <div className={"table-background-" + currentTableBackground.toLowerCase().replace(/ /g, "-")} style={{textAlign: 'center'}}>
+        <div className="ausome-blogs" style={{textAlign: 'center'}}>
+          <GridGalleryMain title={metadataItems.childMarkdownRemark.frontmatter.title} images={images} />
+        </div>
+      </div>
+    </Layout>
   )
 }
 
@@ -130,23 +155,18 @@ query {
     sort: {relativePath: ASC}
   ) {
     edges {
-      node {
-        name
-        ext
-        relativeDirectory
-        publicURL
-        childMarkdownRemark {
-          html
-          frontmatter {
-            title
-            image_alt
-            language_code
-            format
-            version
+        node {
+          name
+          ext
+          relativeDirectory
+          publicURL
+          childMarkdownRemark {
+            frontmatter {
+              title
+            }
           }
         }
       }
-    }
   }
 }
 `
